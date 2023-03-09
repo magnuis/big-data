@@ -136,31 +136,42 @@ def minHash(docs_signature_sets, k):
         b = randint(0, N)
         p = randprime(N, N**2) 
 
-        # loop though signature files
-        for sig_index in range(len(docs_signature_sets)):
-            doc_signature_set = docs_signature_sets[sig_index]
-            min_hash = hash(doc_signature_set[0])
+        for signature_index, signature_set in enumerate(docs_signature_sets):
 
-            # loop though shingles per file
-            for shingle_index in range(N):
-                if doc_signature_set[shingle_index] == 1:# <-- only hash values that are 1 in the signature file
-                    if (((a * shingle_index + b) % p) % N < min_hash): # <-- check if hash is less than current min hash
-                        min_hash = hash(shingle_index)
-            
-            # add min hash to the list of min hashes
-            if (sig_index == 0):
+            min_hash = N
+            for shingle_index, shingle in enumerate(signature_set):
+                if shingle == 1:
+                    hash_value = ((a * shingle_index + b) % p) % N
+                    if hash_value < min_hash:
+                        min_hash = hash_value
+            if (permutation == 0):
                 min_hash_signatures.append([])
-            min_hash_signatures[permutation].append(min_hash)
+            min_hash_signatures[signature_index].append(min_hash)
 
     return min_hash_signatures
 
 
 # METHOD FOR TASK 4
 # Hashes the MinHash Signature Matrix into buckets and find candidate similar documents
-def lsh(m_matrix):
+def lsh(m_matrix, b, r):
     candidates = []  # list of candidate sets of documents for checking similarity
-
+    
     # implement your code here
+    assert b % r == 0, "b must be a multiple of r"
+    bands = dict()
+    for  signature_index, signature in enumerate(m_matrix):
+        for i in range(b):
+
+            band = tuple(signature[i*r:(i+1)*r])
+            if band not in bands:
+                bands[band] = []
+            bands[band].append(signature_index)
+
+    for band in bands.values():
+        for i in range(len(band) - 1):
+            candidate_pair = set([band[i], band[i+1]])
+            if candidate_pair not in candidates:
+                candidates.append(candidate_pair)
 
     return candidates
 
@@ -244,7 +255,7 @@ if __name__ == '__main__':
     # LSH
     print("Starting the Locality-Sensitive Hashing...")
     t10 = time.time()
-    candidate_docs = lsh(min_hash_signatures)
+    candidate_docs = lsh(min_hash_signatures, 10, 1)
     t11 = time.time()
     print("LSH took", t11 - t10, "sec\n")
 
@@ -280,8 +291,10 @@ if __name__ == '__main__':
 
 
 
-
 def hash(a: int, b: int, p: int, N: int, x: int):
     return ((a * x + b) % p) % N
+
+
+
 
 
