@@ -87,12 +87,18 @@ def naive():
 
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
-def k_shingles():
-    docs_k_shingles = []  # holds the k-shingles of each document
+def k_shingles(k: int):
+    '''
+    :param k: the size of the shingles
+    :return: a list of the k-shingles of each document 
+    '''
+    docs_k_shingles = set()  # holds the k-shingles of each document
 
-    # implement your code here
+    for doc in document_list.values():
+        for i in range(len(doc) - k + 1):
+            docs_k_shingles.add(doc[i:i + k])
 
-    return docs_k_shingles
+    return list(docs_k_shingles)
 
 
 # METHOD FOR TASK 2
@@ -183,7 +189,7 @@ if __name__ == '__main__':
     # k-Shingles
     print("Starting to create all k-shingles of the documents...")
     t4 = time.time()
-    all_docs_k_shingles = k_shingles()
+    all_docs_k_shingles = k_shingles(4)
     t5 = time.time()
     print("Representing documents with k-shingles took", t5 - t4, "sec\n")
 
