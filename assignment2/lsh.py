@@ -5,6 +5,8 @@ import sys  # for system errors and printouts
 from pathlib import Path  # for paths of files
 import os  # for reading the input data
 import time  # for timing
+from sympy import randprime  # for random prime number
+from random import randint
 
 # Global parameters
 parameter_file = 'default_parameters.ini'  # the main parameters file
@@ -92,11 +94,13 @@ def k_shingles(k: int):
     :param k: the size of the shingles
     :return: a list of the k-shingles of each document 
     '''
-    docs_k_shingles = set()  # holds the k-shingles of each document
+    docs_k_shingles = []  # holds the k-shingles of each document
 
     for doc in document_list.values():
+        doc_shingle = set()
         for i in range(len(doc) - k + 1):
-            docs_k_shingles.add(doc[i:i + k])
+            doc_shingle.add(doc[i:i + k])
+        docs_k_shingles.append(list(doc_shingle))
 
     return list(docs_k_shingles)
 
@@ -106,17 +110,47 @@ def k_shingles(k: int):
 def signature_set(k_shingles):
     docs_sig_sets = []
 
-    # implement your code here
+    # get list of all shingles
+    all_shingles = []
+    for doc_shingle in k_shingles:
+        for shingle in doc_shingle:
+            if shingle not in all_shingles:
+                all_shingles.append(shingle)
+
+    for doc_shingle in k_shingles:
+        docs_sig_sets.append([1 if x in doc_shingle else 0 for x in all_shingles])
 
     return docs_sig_sets
 
 
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
-def minHash(docs_signature_sets):
+def minHash(docs_signature_sets, k):
     min_hash_signatures = []
 
-    # implement your code here
+    N = len(docs_signature_sets[0])
+
+    # one per k permutations
+    for permutation in range(k):
+        a = randint(0, N)   
+        b = randint(0, N)
+        p = randprime(N, N**2) 
+
+        # loop though signature files
+        for sig_index in range(len(docs_signature_sets)):
+            doc_signature_set = docs_signature_sets[sig_index]
+            min_hash = hash(doc_signature_set[0])
+
+            # loop though shingles per file
+            for shingle_index in range(N):
+                if doc_signature_set[shingle_index] == 1:# <-- only hash values that are 1 in the signature file
+                    if (((a * shingle_index + b) % p) % N < min_hash): # <-- check if hash is less than current min hash
+                        min_hash = hash(shingle_index)
+            
+            # add min hash to the list of min hashes
+            if (sig_index == 0):
+                min_hash_signatures.append([])
+            min_hash_signatures[permutation].append(min_hash)
 
     return min_hash_signatures
 
@@ -189,7 +223,7 @@ if __name__ == '__main__':
     # k-Shingles
     print("Starting to create all k-shingles of the documents...")
     t4 = time.time()
-    all_docs_k_shingles = k_shingles(4)
+    all_docs_k_shingles = k_shingles(2)
     t5 = time.time()
     print("Representing documents with k-shingles took", t5 - t4, "sec\n")
 
@@ -203,7 +237,7 @@ if __name__ == '__main__':
     # Permutations
     print("Starting to simulate the MinHash Signature Matrix...")
     t8 = time.time()
-    min_hash_signatures = minHash(signature_sets)
+    min_hash_signatures = minHash(signature_sets, 10)
     t9 = time.time()
     print("Simulation of MinHash Signature Matrix took", t9 - t8, "sec\n")
 
@@ -243,3 +277,11 @@ if __name__ == '__main__':
         print("Naive similarity calculation took", t3 - t2, "sec")
 
     print("LSH process took in total", t13 - t4, "sec")
+
+
+
+
+def hash(a: int, b: int, p: int, N: int, x: int):
+    return ((a * x + b) % p) % N
+
+
