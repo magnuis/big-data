@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 
 # data
-assignment2/data
+assignment2/data/bbc
