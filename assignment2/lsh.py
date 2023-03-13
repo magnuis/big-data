@@ -7,6 +7,8 @@ import os  # for reading the input data
 import time  # for timing
 from sympy import randprime  # for random prime number
 from random import randint
+from math import floor
+import numpy as np
 
 # Global parameters
 parameter_file = 'default_parameters.ini'  # the main parameters file
@@ -14,6 +16,7 @@ data_main_directory = Path('data')  # the main path were all the data directorie
 parameters_dictionary = dict()  # dictionary that holds the input parameters, key = parameter name, value = value
 document_list = dict()  # dictionary of the input documents, key = document id, value = the document
 
+all_shingles = []
 
 # DO NOT CHANGE THIS METHOD
 # Reads the parameters of the project from the parameter file 'file'
@@ -89,11 +92,8 @@ def naive():
 
 # METHOD FOR TASK 1
 # Creates the k-Shingles of each document and returns a list of them
-def k_shingles(k: int):
-    '''
-    :param k: the size of the shingles
-    :return: a list of the k-shingles of each document 
-    '''
+def k_shingles():
+    k = parameters_dictionary['k']
     docs_k_shingles = []  # holds the k-shingles of each document
 
     for doc in document_list.values():
@@ -102,43 +102,60 @@ def k_shingles(k: int):
             doc_shingle.add(doc[i:i + k])
         docs_k_shingles.append(list(doc_shingle))
 
+    #print(list(docs_k_shingles))
     return list(docs_k_shingles)
 
 
 # METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
 def signature_set(k_shingles):
+    '''
+    :param k_shingles: list of k-shingles of each document
+    :return: list of signature sets of each document
+    '''
     docs_sig_sets = []
 
-    # get list of all shingles
-    all_shingles = []
-    for doc_shingle in k_shingles:
-        for shingle in doc_shingle:
-            if shingle not in all_shingles:
-                all_shingles.append(shingle)
 
-    for doc_shingle in k_shingles:
-        docs_sig_sets.append([1 if x in doc_shingle else 0 for x in all_shingles])
+    shingle_array = np.array(k_shingles[0])
+
+    for i in range(1, len(k_shingles)):
+        shingle_array = np.union1d(shingle_array, np.array(k_shingles[i]))
+    
+    t0 = time.time()
+    count = 0
+    for shingle in k_shingles:
+        signature = np.zeros(shingle_array.size, dtype=np.int8)
+        shingle = np.array(shingle)
+        count += 1
+        if (count % 50 == 0):
+            print(str(count) + " docs at time " + str(time.time() - t0) + " seconds")
+        for i in range(signature.size):
+            if shingle_array[i] in shingle:
+                signature[i] = 1
+        docs_sig_sets.append(list(signature))
 
     return docs_sig_sets
 
 
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
-def minHash(docs_signature_sets, k):
+def minHash(docs_signature_sets):
     min_hash_signatures = []
-
+    
+    permutations = parameters_dictionary['permutations']
     N = len(docs_signature_sets[0])
 
-    # one per k permutations
-    for permutation in range(k):
+    # one loop per k permutations
+    for permutation in range(permutations):
         a = randint(0, N)   
         b = randint(0, N)
         p = randprime(N, N**2) 
 
+        # loop over all document signatures
         for signature_index, signature_set in enumerate(docs_signature_sets):
-
             min_hash = N
+            # loop over all shingles
+            signature_set = np.array(signature_set, dtype=np.int8)
             for shingle_index, shingle in enumerate(signature_set):
                 if shingle == 1:
                     hash_value = ((a * shingle_index + b) % p) % N
@@ -153,35 +170,75 @@ def minHash(docs_signature_sets, k):
 
 # METHOD FOR TASK 4
 # Hashes the MinHash Signature Matrix into buckets and find candidate similar documents
-def lsh(m_matrix, b, r):
+def lsh(m_matrix):
     candidates = []  # list of candidate sets of documents for checking similarity
     
-    # implement your code here
-    assert b % r == 0, "b must be a multiple of r"
-    bands = dict()
-    for  signature_index, signature in enumerate(m_matrix):
-        for i in range(b):
+    buckets = parameters_dictionary['buckets']
+    r = parameters_dictionary['r']
 
-            band = tuple(signature[i*r:(i+1)*r])
-            if band not in bands:
-                bands[band] = []
-            bands[band].append(signature_index)
+    m_matrix_banded = []
 
-    for band in bands.values():
-        for i in range(len(band) - 1):
-            candidate_pair = set([band[i], band[i+1]])
-            if candidate_pair not in candidates:
-                candidates.append(candidate_pair)
+    for signature_index, signature in enumerate(m_matrix):
+        assert len(signature) % r == 0 # <-- the number of entries must be divisible by r
+        banded_signature = []
+        for i in range(0, len(signature), r):
+            band = (signature[i:i+r])
+            banded_signature.append(band)
+        m_matrix_banded.append(np.array(banded_signature))
 
+
+    # one loop per band
+    for band_index in range(len(m_matrix_banded[0])):   
+        hash_buckets = {}
+        # one loop per signature in the band
+        for signature_index, signature in enumerate(m_matrix_banded):
+            # simple hashing, taking the sum of the band and modding it by the number of buckets
+            band = sum(signature[band_index])
+            hash_value = (band) % buckets
+            # add hash value into corresponding bucket
+            if hash_value not in hash_buckets:
+                hash_buckets[hash_value] = [signature_index]
+            else:
+                hash_buckets[hash_value].append(signature_index)
+
+
+        # check for collisions
+        for bucket in hash_buckets.values():
+            if len(bucket) > 1: # <-- not consider buckets with one signature
+                for i in range(len(bucket)-1):
+                    candidate_pair = (bucket[i], bucket[i+1])
+                    if candidate_pair not in candidates:
+                        candidates.append(candidate_pair)
+    # print(m_matrix)
+    # print(m_matrix_banded)
+    # print(candidates)
     return candidates
 
+
+def similarity(doc1, doc2):
+    permutations = parameters_dictionary['permutations']
+    for i in range(len(doc1)):
+        count = 0
+        if doc1[i] == doc2[i]:
+            count += 1
+    return count / permutations
 
 # METHOD FOR TASK 5
 # Calculates the similarities of the candidate documents
 def candidates_similarities(candidate_docs, min_hash_matrix):
     similarity_matrix = []
 
-    # implement your code here
+    for pair in candidate_docs:
+        # doc1 = set(min_hash_matrix[pair[0]])
+        # doc2 = set(min_hash_matrix[pair[1]])
+        # similarity = jaccard(doc1=doc1, doc2=doc2)
+
+        hash_1 = min_hash_matrix[pair[0]]
+        hash_2 = min_hash_matrix[pair[1]]
+        
+        sim = similarity(hash_1, hash_2)
+        
+        similarity_matrix.append(((pair[0], pair[1]), sim))
 
     return similarity_matrix
 
@@ -190,9 +247,14 @@ def candidates_similarities(candidate_docs, min_hash_matrix):
 # Returns the document pairs of over t% similarity
 def return_results(lsh_similarity_matrix):
     document_pairs = []
-
-    # implement your code here
-
+    t = parameters_dictionary['t']
+    count = 0
+    for row in lsh_similarity_matrix:
+        if row[1] >= t:
+            document_pairs.append(row[0])
+        else:
+            count += 1
+    print("Number of false positives: " + str(count) + " out of " + str(len(lsh_similarity_matrix)) + " candidates.")
     return document_pairs
 
 
@@ -201,7 +263,22 @@ def count_false_neg_and_pos(lsh_similarity_matrix, naive_similarity_matrix):
     false_negatives = 0
     false_positives = 0
 
-    # implement your code here
+    length = len(document_list)
+    t = parameters_dictionary['t']
+
+    for candidate_pair in lsh_similarity_matrix:
+        i = candidate_pair[0][0]
+        j = candidate_pair[0][1]
+        triangle_index = get_triangle_index(i, j, length)
+       # print("for i = " + str(i) + " and j = " + str(j) + " the similarity is " + str(naive_similarity_matrix[triangle_index]))
+        
+        naive_similarity = naive_similarity_matrix[triangle_index]
+        candidate_similarity = candidate_pair[1]
+
+        if naive_similarity >= t and candidate_similarity < t:
+            false_positives += 1
+        elif naive_similarity < t and candidate_similarity >= t:
+            false_negatives += 1
 
     return false_negatives, false_positives
 
@@ -234,7 +311,7 @@ if __name__ == '__main__':
     # k-Shingles
     print("Starting to create all k-shingles of the documents...")
     t4 = time.time()
-    all_docs_k_shingles = k_shingles(2)
+    all_docs_k_shingles = k_shingles()
     t5 = time.time()
     print("Representing documents with k-shingles took", t5 - t4, "sec\n")
 
@@ -248,14 +325,14 @@ if __name__ == '__main__':
     # Permutations
     print("Starting to simulate the MinHash Signature Matrix...")
     t8 = time.time()
-    min_hash_signatures = minHash(signature_sets, 10)
+    min_hash_signatures = minHash(signature_sets)
     t9 = time.time()
     print("Simulation of MinHash Signature Matrix took", t9 - t8, "sec\n")
 
     # LSH
     print("Starting the Locality-Sensitive Hashing...")
     t10 = time.time()
-    candidate_docs = lsh(min_hash_signatures, 10, 1)
+    candidate_docs = lsh(min_hash_signatures)
     t11 = time.time()
     print("LSH took", t11 - t10, "sec\n")
 
