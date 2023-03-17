@@ -115,11 +115,10 @@ def signature_set(k_shingles):
     '''
     docs_sig_sets = []
 
-
     shingle_array = np.array(k_shingles[0])
 
-    for i in range(1, len(k_shingles)):
-        shingle_array = np.union1d(shingle_array, np.array(k_shingles[i]))
+    for k_shingle in k_shingles:
+        shingle_array = np.union1d(shingle_array, np.array(k_shingle))
     
     t0 = time.time()
     count = 0
@@ -137,6 +136,9 @@ def signature_set(k_shingles):
     return docs_sig_sets
 
 
+def hash(a, b, p, N):
+    return lambda x: ((a * x + b) % p) % N
+
 # METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
 def minHash(docs_signature_sets):
@@ -145,12 +147,13 @@ def minHash(docs_signature_sets):
     permutations = parameters_dictionary['permutations']
     N = len(docs_signature_sets[0])
 
+    min_hash_signatures = [[] for i in range(len(docs_signature_sets))]
     # one loop per k permutations
-    for permutation in range(permutations):
+    for _ in range(permutations):
         a = randint(0, N)   
         b = randint(0, N)
         p = randprime(N, N**2) 
-
+        
         # loop over all document signatures
         for signature_index, signature_set in enumerate(docs_signature_sets):
             min_hash = N
@@ -158,11 +161,8 @@ def minHash(docs_signature_sets):
             signature_set = np.array(signature_set, dtype=np.int8)
             for shingle_index, shingle in enumerate(signature_set):
                 if shingle == 1:
-                    hash_value = ((a * shingle_index + b) % p) % N
-                    if hash_value < min_hash:
-                        min_hash = hash_value
-            if (permutation == 0):
-                min_hash_signatures.append([])
+                    hash_value = hash(a, b, p, N)(shingle_index)
+                    min_hash = min(min_hash, hash_value)
             min_hash_signatures[signature_index].append(min_hash)
 
     return min_hash_signatures
@@ -185,7 +185,6 @@ def lsh(m_matrix):
             band = (signature[i:i+r])
             banded_signature.append(band)
         m_matrix_banded.append(np.array(banded_signature))
-
 
     # one loop per band
     for band_index in range(len(m_matrix_banded[0])):   
@@ -212,6 +211,7 @@ def lsh(m_matrix):
     # print(m_matrix)
     # print(m_matrix_banded)
     # print(candidates)
+    print(candidates)
     return candidates
 
 
