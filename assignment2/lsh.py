@@ -80,13 +80,10 @@ def naive():
     # Using triangular array to store the similarities, avoiding half size and similarities of i==j
     num_elems = int(len(docs_Sets) * (len(docs_Sets) - 1) / 2)
     similarity_matrix = [0 for x in range(num_elems)]
-    comp = 0
     for i in range(len(docs_Sets)):
         for j in range(i + 1, len(docs_Sets)):
-            comp += 1
             similarity_matrix[get_triangle_index(i, j, len(docs_Sets))] = jaccard(docs_Sets[i], docs_Sets[j])
 
-    print("Comparisons: " + str(comp))
     return similarity_matrix
 
 
@@ -108,41 +105,7 @@ def k_shingles():
     return list(docs_k_shingles)
 
 
-# # METHOD FOR TASK 2
-# # Creates a signatures set of the documents from the k-shingles list
-# def signature_set(k_shingles):
-#     '''
-#     :param k_shingles: list of k-shingles of each document
-#     :return: list of signature sets of each document (inverse index)
-#     '''
-#     docs_sig_sets = []
-
-#     shingle_array = np.array(k_shingles[0])
-
-#     # Create a union of all the shingles
-#     for k_shingle in k_shingles:
-#         shingle_array = np.union1d(shingle_array, np.array(k_shingle))
-    
-#     # REMOVE
-#     print(shingle_array.size)
-    
-#     # Create dict for speed optimization
-#     shingle_dict = {}
-#     for index, shingle in enumerate(shingle_array):
-#         shingle_dict[shingle] = index
-
-#     length = len(shingle_array)
-#     # Create the signature sets
-#     for docs_shingle in k_shingles:
-#         signature = list(np.zeros(length, dtype=int))
-#         for shingle in docs_shingle:
-#             index = shingle_dict[shingle]
-#             signature[index] = 1
-#         docs_sig_sets.append(list(signature))
-
-#     return docs_sig_sets
-
-# METHOD FOR TASK 2, inverted index version
+# METHOD FOR TASK 2
 # Creates a signatures set of the documents from the k-shingles list
 def signature_set(k_shingles):
     '''
@@ -156,57 +119,59 @@ def signature_set(k_shingles):
     # Create a union of all the shingles
     for k_shingle in k_shingles:
         shingle_array = np.union1d(shingle_array, np.array(k_shingle))
-
+    
     # Create dict for speed optimization
     shingle_dict = {}
     for index, shingle in enumerate(shingle_array):
         shingle_dict[shingle] = index
 
+    length = len(shingle_array)
     # Create the signature sets
     for docs_shingle in k_shingles:
-        signature = []
+        signature = list(np.zeros(length, dtype=int))
         for shingle in docs_shingle:
             index = shingle_dict[shingle]
-            signature.append(index) 
+            signature[index] = 1
         docs_sig_sets.append(list(signature))
 
     return docs_sig_sets
+
+# METHOD FOR TASK 2, inverted index version
+# Creates a signatures set of the documents from the k-shingles list
+# def signature_set(k_shingles):
+#     '''
+#     :param k_shingles: list of k-shingles of each document
+#     :return: list of signature sets of each document (inverse index)
+#     '''
+#     docs_sig_sets = []
+
+#     shingle_array = np.array(k_shingles[0])
+
+#     # Create a union of all the shingles
+#     for k_shingle in k_shingles:
+#         shingle_array = np.union1d(shingle_array, np.array(k_shingle))
+
+#     # Create dict for speed optimization
+#     shingle_dict = {}
+#     for index, shingle in enumerate(shingle_array):
+#         shingle_dict[shingle] = index
+
+#     # Create the signature sets
+#     for docs_shingle in k_shingles:
+#         signature = []
+#         for shingle in docs_shingle:
+#             index = shingle_dict[shingle]
+#             signature.append(index) 
+#         docs_sig_sets.append(list(signature))
+
+#     return docs_sig_sets
 
 
 # Helper function for TASK 3
 def hash(a, b, x, N, p):
     return (a * x + b) %p % N
 
-# # METHOD FOR TASK 3
-# # Creates the minHash signatures after simulation of permutations
-# def minHash(docs_signature_sets):
-#     '''
-#     :param docs_signature_sets: list of signature sets of each document 
-#     :return: list of minHash signatures of each document
-#     '''
-#     min_hash_signatures = []
-    
-#     permutations = parameters_dictionary['permutations']
-#     N = len(docs_signature_sets[0])
-
-#     min_hash_signatures = [[] for _ in range(len(docs_signature_sets))]
-
-#     for _ in range(permutations):
-#         a = random.randint(1, N)
-#         b = random.randint(1, N)
-#         p = randprime(N, 2*N)
-#         for signature_index, signature_set in enumerate(docs_signature_sets):
-#             min_hash = N
-#             for index, value in enumerate(signature_set):
-#                 if value != 0:
-#                     min_hash = min(min_hash, hash(a, b, index, N, p))
-            
-#             min_hash_signatures[signature_index] += min_hash,
-
-#     return min_hash_signatures
-
-
-# METHOD FOR TASK 3, inverted index
+# METHOD FOR TASK 3
 # Creates the minHash signatures after simulation of permutations
 def minHash(docs_signature_sets):
     '''
@@ -216,7 +181,7 @@ def minHash(docs_signature_sets):
     min_hash_signatures = []
     
     permutations = parameters_dictionary['permutations']
-    N = len(naive_similarity_matrix)
+    N = len(docs_signature_sets[0])
 
     min_hash_signatures = [[] for _ in range(len(docs_signature_sets))]
 
@@ -226,11 +191,40 @@ def minHash(docs_signature_sets):
         p = randprime(N, 2*N)
         for signature_index, signature_set in enumerate(docs_signature_sets):
             min_hash = N
-            for index in signature_set:
-                min_hash = min(min_hash, hash(a, b, index, N, p))
+            for index, value in enumerate(signature_set):
+                if value != 0:
+                    min_hash = min(min_hash, hash(a, b, index, N, p))
+            
             min_hash_signatures[signature_index] += min_hash,
 
     return min_hash_signatures
+
+
+# METHOD FOR TASK 3, inverted index
+# Creates the minHash signatures after simulation of permutations
+# def minHash(docs_signature_sets):
+#     '''
+#     :param docs_signature_sets: list of signature sets of each document 
+#     :return: list of minHash signatures of each document
+#     '''
+#     min_hash_signatures = []
+    
+#     permutations = parameters_dictionary['permutations']
+#     N = len(naive_similarity_matrix)
+
+#     min_hash_signatures = [[] for _ in range(len(docs_signature_sets))]
+
+#     for _ in range(permutations):
+#         a = random.randint(1, N)
+#         b = random.randint(1, N)
+#         p = randprime(N, 2*N)
+#         for signature_index, signature_set in enumerate(docs_signature_sets):
+#             min_hash = N
+#             for index in signature_set:
+#                 min_hash = min(min_hash, hash(a, b, index, N, p))
+#             min_hash_signatures[signature_index] += min_hash,
+
+#     return min_hash_signatures
 
 
 # Helper method for task 4
@@ -265,7 +259,6 @@ def lsh(m_matrix):
             
         m_matrix_banded.append(banded_signature)
 
-    comp = 0
     a = random.randint(1, buckets)
     c = random.randint(1, buckets)
     # one loop per band
@@ -290,10 +283,8 @@ def lsh(m_matrix):
                     for j in range(i + 1, len(bucket)):
                         candidate_pair = (bucket[i], bucket[j])
                         if candidate_pair not in candidates:
-                            comp += 1
                             candidates.add(candidate_pair)
 
-    print("Comparisons: ", comp)
     return list(candidates)
 
 
