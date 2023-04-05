@@ -28,7 +28,7 @@ def read_parameters():
 # TASK 2
 def bloom_filter(new_pass):
 
-    n = parameters_dictionary['N']
+    n = parameters_dictionary["n"]
 
     return 0
 
@@ -56,8 +56,11 @@ def read_data(file):
 def hash_functions():
 
     hashes = []
+    for key in parameters_dictionary.keys():
+        print("Printing")
+        print(key)
     h = parameters_dictionary["h"]
-    n = parameters_dictionary["N"]
+    n = parameters_dictionary["n"]
 
     for i in range(1, h+1):
         p_lower = i * 1000
