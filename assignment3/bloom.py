@@ -3,12 +3,13 @@
 import configparser  # for reading the parameters file
 from pathlib import Path  # for paths of files
 import time  # for timing
+# TODO import random prime
 
 # Global parameters
 parameter_file = 'default_parameters.ini'  # the main parameters file
 data_main_directory = Path('data')  # the main path were all the data directories are
 parameters_dictionary = dict()  # dictionary that holds the input parameters, key = parameter name, value = value
-
+import sympy as sp
 
 # DO NOT CHANGE THIS METHOD
 # Reads the parameters of the project from the parameter file 'file'
@@ -27,7 +28,7 @@ def read_parameters():
 # TASK 2
 def bloom_filter(new_pass):
 
-    # implement your code here
+    n = parameters_dictionary['N']
 
     return 0
 
@@ -54,9 +55,17 @@ def read_data(file):
 # Created h number of hash functions
 def hash_functions():
 
-    # implement your code here
+    hashes = []
+    h = parameters_dictionary["h"]
+    n = parameters_dictionary["N"]
 
-    return 0
+    for i in range(1, h+1):
+        p_lower = i * 1000
+        p_upper = (i + 1) * 1000
+        p = sp.primerange(p_lower, p_upper)
+        hashes.append(lambda S: sum(s * pow(p, i) for i, s in enumerate(S)) % n)
+
+    return hashes
 
 
 if __name__ == '__main__':
